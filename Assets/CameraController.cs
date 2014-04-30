@@ -2,7 +2,7 @@
 using System.Collections;
 
 public class CameraController : MonoBehaviour {
-	int zoomLevel = 1;
+	public float zoomLevel = 1;
 	float denominator = 10;
 	public Camera cameraLeft;
 	public Camera cameraRight;
@@ -19,12 +19,24 @@ public class CameraController : MonoBehaviour {
 						transform.position = curr + (adder / denominator) * zoomLevel;
 				} else {
 			Vector3 curr = transform.position;
-			// Find all game objects with tag Enemy
-			if(cameraLeft.orthographicSize >= 0 ) { 
-			cameraLeft.orthographicSize -= Input.GetAxis ("Vertical")/100;
-			cameraRight.orthographicSize -= Input.GetAxis ("Vertical")/100;
-			} else 
-				cameraLeft.orthographicSize = 0;
+			if(cameraLeft.orthographicSize >= 0 && cameraLeft.orthographicSize<7600) { 
+				cameraLeft.orthographicSize -= cameraLeft.orthographicSize*Input.GetAxis ("Vertical")/20;
+				cameraRight.orthographicSize -= cameraLeft.orthographicSize*Input.GetAxis ("Vertical")/20;
+				zoomLevel=cameraRight.orthographicSize;
+			} else {
+				if(cameraLeft.orthographicSize==0) {
+					cameraLeft.orthographicSize = 1; 
+					cameraRight.orthographicSize = 1;
+				} else { 
+					if(Input.GetAxis ("Vertical")>0) {
+						cameraLeft.orthographicSize -= cameraLeft.orthographicSize*Input.GetAxis ("Vertical")/20;
+						cameraRight.orthographicSize -= cameraLeft.orthographicSize*Input.GetAxis ("Vertical")/20;
+					} else {
+					cameraLeft.orthographicSize = 7600;
+					cameraRight.orthographicSize = 7600;
+					}
+				}
+			}
 		}
 	}
 }
