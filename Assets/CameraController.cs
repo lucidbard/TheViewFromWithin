@@ -3,8 +3,10 @@ using System.Collections;
 using System;
 
 public class CameraController : MonoBehaviour {
+	public bool debugOutput;
 	public float zoomLevel = 1;
 	public float cameraDepth = -10;
+	public float tourLength=5f;
 	float denominator = 10;
 	public Camera cameraLeft;
 	public Camera cameraRight;
@@ -14,6 +16,63 @@ public class CameraController : MonoBehaviour {
 	public SpriteRenderer warpSprite;
 	public MeshRenderer outerObject;
 	private Vector3 startPos = new Vector3(3132.36f,-101.3f,.25f);
+	public Transform[] scenes;
+	public int currentScene=0;
+	private string currentSceneTitle="";
+	Vector3 center= Vector3.zero;
+	private string currentObjectTree="";
+	private string currentCenterTree="";
+
+	void recursiveCenterCalc(Transform trans) {
+		foreach (Transform child in trans)
+		{
+			if(child.gameObject.GetComponent ("renderer")) {
+				center += child.gameObject.renderer.bounds.center;
+				currentCenterTree+="\nCenter: " + child.gameObject.name + "," + child.gameObject.renderer.bounds.center;
+				childCount++;
+				if(child.childCount>0)
+					recursiveCenterCalc(child.transform);
+			}
+			else {
+				recursiveCenterCalc(child.transform);
+			}
+		}
+	}
+
+	Bounds recursiveBoundsCalc(Transform trans, Bounds bounds){
+		currentObjectTree+="\nParent: " + trans.gameObject.name;
+		foreach (Transform child in trans)
+		{
+			if(child.gameObject.GetComponent("Renderer")) { 
+				currentObjectTree+="\nRenderer: " + child.gameObject.name + child.gameObject.renderer.bounds;
+				bounds.Encapsulate(child.gameObject.renderer.bounds);
+			} else
+			   bounds = recursiveBoundsCalc(child.gameObject.transform,bounds);
+		}
+		return bounds;
+	}
+
+	int childCount=0;
+	Bounds getBounds(Transform trans) {
+		currentObjectTree="";
+		currentCenterTree="";
+		// First find a center for your bounds.
+		Bounds bounds;
+		center = Vector3.zero;
+		childCount = 0;
+		if(trans.childCount==1 && trans.GetChild(0).GetComponent("Renderer")) {
+			center = trans.GetChild(0).renderer.bounds.center;
+			bounds = trans.GetChild(0).renderer.bounds;
+		} else {
+			recursiveCenterCalc(trans);
+			Debug.Log ("Calculating " + childCount + " children");
+			center /= childCount; //center is average center of children
+			//Now you have a center, calculate the bounds by creating a zero sized 'Bounds', 
+			 bounds = new Bounds(center,Vector3.zero); 
+			bounds=recursiveBoundsCalc(trans,bounds);
+		}
+		return bounds;
+	}
 
 	// Use this for initialization
 	void Start () {
@@ -78,18 +137,14 @@ public class CameraController : MonoBehaviour {
 					(Input.GetButton ("Fire2")|Input.GetKey(KeyCode.PageUp)?1:0)/
 						(20.0f*((Input.GetKey(KeyCode.LeftShift)|Input.GetKey (KeyCode.RightShift))?1:2));
 			}
-				zoomLevel=cameraRight.orthographicSize;
-
-
+			zoomLevel=cameraRight.orthographicSize;
 		} else {
 			if(cameraLeft.orthographicSize<.2f) {
 				cameraLeft.orthographicSize = .2f; 
 				cameraRight.orthographicSize = .2f;
 				cameraNormal.orthographicSize = .2f;
 			} else if (cameraLeft.orthographicSize>=8500){ 
-				cameraLeft.orthographicSize = 8500;
-				cameraRight.orthographicSize = 8500;
-				cameraNormal.orthographicSize = 8500;
+				warpToCorrespondingObject(outerObject,warpSprite);
 			}
 		}
 		// Detect if we are within a warp zone
@@ -101,10 +156,12 @@ public class CameraController : MonoBehaviour {
 		   {
 			warpToCorrespondingObject(warpSprite,outerObject);
 		}
-		if(Input.GetKeyDown (KeyCode.Home)||Input.GetKeyDown (KeyCode.Space)) {
+		if(Input.GetKeyDown (KeyCode.Home)) {
 			goToPosition(startPos);
-		} else if (Input.GetKeyDown (KeyCode.A) || Input.GetKeyDown(KeyCode.Z)) {
-			animateToPosition(warpSprite.transform.position,warpSprite.bounds.extents.y+1f);
+		} else if (Input.GetKeyDown (KeyCode.Space)) {
+			nextScene();
+		}else if (Input.GetKeyDown (KeyCode.A) || Input.GetKeyDown(KeyCode.Z)) {
+			animateToPosition(warpSprite.bounds);
 		} else if (Input.GetKeyDown (KeyCode.V)) {
 			goToPosition(outerObject);
 		} else if (Input.GetKeyDown (KeyCode.Backspace)) {
@@ -116,28 +173,22 @@ public class CameraController : MonoBehaviour {
 //			lastTime=Time.time;
 //			float fracJourney = distCovered / journeyLength;
 			
-			curPosition.x = Interpolate.Ease(Interpolate.EaseType.EaseInOutQuad)(start_x,dist_x,elapsed,10);
-			curPosition.y = Interpolate.Ease(Interpolate.EaseType.EaseInOutQuad)(start_y,dist_y,elapsed,10);
+			curPosition.x = Interpolate.Ease(Interpolate.EaseType.EaseInOutQuad)(start_x,dist_x,elapsed,tourLength);
+			curPosition.y = Interpolate.Ease(Interpolate.EaseType.EaseInOutQuad)(start_y,dist_y,elapsed,tourLength);
 			transform.position = curPosition;
-			if(elapsed<=5.0f) {
-				zoomLevel=Interpolate.Ease(Interpolate.EaseType.EaseInOutQuad)(startZoom,midZoom-startZoom,elapsed,5.0f);
-			} else if (elapsed >5.0f && elapsed < 10.0f) {
-				zoomLevel=Interpolate.Ease(Interpolate.EaseType.EaseInOutQuad)(midZoom,-(midZoom-endZoom),elapsed-5.0f,5.0f);
+			if(elapsed<=7.5f) {
+				zoomLevel=Interpolate.Ease(Interpolate.EaseType.EaseInOutQuad)(startZoom,endZoom-startZoom,elapsed,tourLength+1f);
 			} else {
 				animating=false;
 				curPosition.x=start_x+dist_x;
 				curPosition.y=start_y+dist_y;
-				transform.position = curPosition;
+				transform.position = destination;
 			}
-
 			cameraLeft.orthographicSize = cameraRight.orthographicSize = cameraNormal.orthographicSize = zoomLevel;
 		}
 		
 	}
-	float distCovered = 0f;
-	private float lastTime;
 	private bool animating=false;
-	private float speed = 2.0F;
 	private float journeyLength;
 	private Vector3 origin;
 	private Vector3 destination;
@@ -151,28 +202,38 @@ public class CameraController : MonoBehaviour {
 	private float dist_x;
 	private float dist_y;
 
-	public void animateToPosition(Vector3 dest, float destZoom=0) {
-		destination = dest;
-		distCovered = 0f;
+	
+	void nextScene() {
+		currentObjectTree="";
+		if(currentScene < scenes.Length-1)
+		{
+			++currentScene;
+		} else
+			currentScene = 0;
+		Debug.Log ("Going to " + scenes[currentScene].gameObject.name);
+		currentSceneTitle = scenes[currentScene].gameObject.name;
+		Bounds objectBounds = getBounds(scenes[currentScene]);
+		animateToPosition(objectBounds);
+		Debug.Log (scenes[currentScene].transform.position + " bounds: " + objectBounds);
+
+	}
+
+	public void animateToPosition(Bounds bounds) {
+		destination = bounds.center;
 		origin = transform.position;
 		startZoom = zoomLevel;
-
+		float destZoom = bounds.extents.y;
 		if(destZoom==0) {
 			destZoom=endZoom=startZoom;
 		} else {
-			if(Mathf.Abs(destZoom-startZoom)>100)
-				midZoom = Mathf.Abs((destZoom-startZoom)/2);
-			else
-				midZoom = Vector3.Distance(origin,destination)/6f;
 			endZoom=destZoom;
 		}
-
+		elapsed=0;
 		animating=true;
-		lastTime=Time.time;
 		start_x=transform.position.x;
 		start_y=transform.position.y;
-		dist_x=dest.x-start_x;
-		dist_y=dest.y-start_y;
+		dist_x=bounds.center.x-start_x;
+		dist_y=bounds.center.y-start_y;
 	}
 
 
@@ -183,11 +244,11 @@ public class CameraController : MonoBehaviour {
 		float uniform_y = transform.position.y-smallObject.transform.position.y;
 		double scale_x = largeObject.bounds.extents.x/smallObject.bounds.extents.x;
 		double scale_y = largeObject.bounds.extents.y/smallObject.bounds.extents.y;
-//		Debug.Log ("Warping: " + uniform_x + ", " + uniform_y + " at " + (zoomLevel/smallObject.bounds.extents.y) + " scale x: " + scale_x + "scale_y: " + scale_y );
+		Debug.Log ("Warping: " + uniform_x + ", " + uniform_y + " at " + (zoomLevel/smallObject.bounds.extents.y) + " scale x: " + scale_x + "scale_y: " + scale_y );
 		zoomLevel = (zoomLevel/smallObject.bounds.extents.y)*largeObject.bounds.extents.y;
 		newPosition.x = (float)(uniform_x*scale_x);
 		newPosition.y = (float)(uniform_y*scale_y);
-		transform.position = newPosition;
+		transform.position = newPosition+largeObject.transform.position;
 		cameraLeft.orthographicSize = cameraRight.orthographicSize = cameraNormal.orthographicSize = zoomLevel;
 	}
 	
@@ -222,7 +283,12 @@ public class CameraController : MonoBehaviour {
 	}
 	
 	void OnGUI() {
-		GUI.color = Color.black;
-		GUI.Label(new UnityEngine.Rect(10, 10, 150, 100), printPosition());
+		if(debugOutput) {
+			GUI.color = Color.black;
+			GUI.Label(new UnityEngine.Rect(10, 10, 150, 100), printPosition());
+			GUI.Label(new UnityEngine.Rect(10, 40, 150, 100), currentSceneTitle);
+			GUI.Label(new UnityEngine.Rect(10, 70, 200, 1000), currentObjectTree);
+			GUI.Label(new UnityEngine.Rect(420, 70, 200, 1000), currentCenterTree);
+		}
 	}
 }
