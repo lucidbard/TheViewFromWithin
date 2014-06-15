@@ -84,6 +84,8 @@ public class CameraController : MonoBehaviour {
 		transform.position=newPosition;
 	}
 	
+	Vector3 mousePos;
+	Vector3 dragOrigin;
 	// Update is called once per frame
 	void Update () {
 		Vector3 curr = transform.position;
@@ -111,32 +113,55 @@ public class CameraController : MonoBehaviour {
 //					newPiority = true
 
 		transform.position = newPosition;
-
-
+		//ScrollWheel to zoom in and out.
+		mousePos = cameraNormal.ScreenToWorldPoint(new Vector3(Input.mousePosition.x, Input.mousePosition.y, cameraNormal.transform.position.z));
+		dragOrigin = cameraNormal.ScreenToWorldPoint(new Vector3 (Screen.width / 2, Screen.height / 2, cameraNormal.transform.position.z));
 		if((cameraLeft.orthographicSize >= .20f && cameraLeft.orthographicSize<=8500)&&
 		   (cameraNormal.orthographicSize >= .20f && cameraNormal.orthographicSize<=8500)) { 
 			if(cameraLeft.orthographicSize > .2f) {
-				cameraLeft.orthographicSize -= cameraLeft.orthographicSize*
-					(Input.GetButton ("Fire1")|Input.GetKey (KeyCode.PageDown)?1:0)/
-						(20.0f*((Input.GetKey(KeyCode.LeftShift)|Input.GetKey (KeyCode.RightShift))?1:2));
-				cameraRight.orthographicSize -= cameraRight.orthographicSize*
-					(Input.GetButton ("Fire1")|Input.GetKey(KeyCode.PageDown)?1:0)/
-						(20.0f*((Input.GetKey(KeyCode.LeftShift)|Input.GetKey (KeyCode.RightShift))?1:2));
-				cameraNormal.orthographicSize -= cameraNormal.orthographicSize*
-					(Input.GetButton ("Fire1")|Input.GetKey(KeyCode.PageDown)?1:0)/
-						(20.0f*((Input.GetKey(KeyCode.LeftShift)|Input.GetKey (KeyCode.RightShift))?1:2));
+				if( Input.GetAxis("Mouse ScrollWheel") > 0 )
+				{
+					
+					cameraLeft.orthographicSize -= cameraLeft.orthographicSize/4f;
+					cameraRight.orthographicSize -= cameraRight.orthographicSize/4f;
+					cameraNormal.orthographicSize -= cameraNormal.orthographicSize/4f;
+					newPosition.y = transform.position.y + ((mousePos.y - dragOrigin.y) / (cameraNormal.orthographicSize * 2));
+                	newPosition.x = transform.position.x + ((mousePos.x - dragOrigin.x) / (cameraNormal.orthographicSize * 2));
+					newPosition.z = -10;
+				} else {
+					cameraLeft.orthographicSize -= cameraLeft.orthographicSize*
+						(Input.GetButton ("Fire1")|Input.GetKey (KeyCode.PageDown)?1:0)/
+							(20.0f*((Input.GetKey(KeyCode.LeftShift)|Input.GetKey (KeyCode.RightShift))?1:2));
+					cameraRight.orthographicSize -= cameraRight.orthographicSize*
+						(Input.GetButton ("Fire1")|Input.GetKey(KeyCode.PageDown)?1:0)/
+							(20.0f*((Input.GetKey(KeyCode.LeftShift)|Input.GetKey (KeyCode.RightShift))?1:2));
+					cameraNormal.orthographicSize -= cameraNormal.orthographicSize*
+						(Input.GetButton ("Fire1")|Input.GetKey(KeyCode.PageDown)?1:0)/
+							(20.0f*((Input.GetKey(KeyCode.LeftShift)|Input.GetKey (KeyCode.RightShift))?1:2));
+				}
 			}
 			if(cameraLeft.orthographicSize < 8500) {
-				cameraLeft.orthographicSize += cameraLeft.orthographicSize*
-					(Input.GetButton ("Fire2")|Input.GetKey (KeyCode.PageUp)?1:0)/
-						(20.0f*((Input.GetKey(KeyCode.LeftShift)|Input.GetKey (KeyCode.RightShift))?1:2));
-				cameraRight.orthographicSize += cameraRight.orthographicSize*
-					(Input.GetButton ("Fire2")|Input.GetKey (KeyCode.PageUp)?1:0)/
-						(20.0f*((Input.GetKey(KeyCode.LeftShift)|Input.GetKey (KeyCode.RightShift))?1:2));
-				cameraNormal.orthographicSize += cameraNormal.orthographicSize*
-					(Input.GetButton ("Fire2")|Input.GetKey(KeyCode.PageUp)?1:0)/
-						(20.0f*((Input.GetKey(KeyCode.LeftShift)|Input.GetKey (KeyCode.RightShift))?1:2));
+				if(Input.GetAxis("Mouse ScrollWheel") < 0)
+				{
+					cameraLeft.orthographicSize += cameraLeft.orthographicSize/4f;
+					cameraRight.orthographicSize += cameraRight.orthographicSize/4f;
+					cameraNormal.orthographicSize += cameraNormal.orthographicSize/4f;
+					newPosition.y = transform.position.y - ((mousePos.y - dragOrigin.y) / (cameraNormal.orthographicSize * 2));
+					newPosition.x = transform.position.x - ((mousePos.x - dragOrigin.x) / (cameraNormal.orthographicSize * 2));
+				} else {
+					cameraLeft.orthographicSize += cameraLeft.orthographicSize*
+						(Input.GetButton ("Fire2")|Input.GetKey (KeyCode.PageUp)?1:0)/
+							(20.0f*((Input.GetKey(KeyCode.LeftShift)|Input.GetKey (KeyCode.RightShift))?1:2));
+					cameraRight.orthographicSize += cameraRight.orthographicSize*
+						(Input.GetButton ("Fire2")|Input.GetKey (KeyCode.PageUp)?1:0)/
+							(20.0f*((Input.GetKey(KeyCode.LeftShift)|Input.GetKey (KeyCode.RightShift))?1:2));
+					cameraNormal.orthographicSize += cameraNormal.orthographicSize*
+						(Input.GetButton ("Fire2")|Input.GetKey(KeyCode.PageUp)?1:0)/
+							(20.0f*((Input.GetKey(KeyCode.LeftShift)|Input.GetKey (KeyCode.RightShift))?1:2));
+				}
+
 			}
+			transform.position = newPosition;
 			zoomLevel=cameraRight.orthographicSize;
 		} else if(cameraLeft.orthographicSize<.2f) {
 				cameraLeft.orthographicSize = .2f; 
@@ -290,7 +315,8 @@ public class CameraController : MonoBehaviour {
 	void OnGUI() {
 		if(debugOutput) {
 			GUI.color = Color.black;
-			GUI.Label(new UnityEngine.Rect(10, 10, 150, 100), printPosition());
+			GUI.Label(new UnityEngine.Rect(10, 10, 150, 100), "Mouse Pos: " + mousePos + ", dragOrigin: " + dragOrigin);
+//			GUI.Label(new UnityEngine.Rect(10, 10, 150, 100), printPosition());
 			GUI.Label(new UnityEngine.Rect(10, 40, 150, 100), currentSceneTitle);
 			GUI.Label(new UnityEngine.Rect(10, 70, 200, 1000), currentObjectTree);
 			GUI.Label(new UnityEngine.Rect(420, 70, 200, 1000), currentCenterTree);
