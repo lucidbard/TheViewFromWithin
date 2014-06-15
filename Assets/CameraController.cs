@@ -126,7 +126,7 @@ public class CameraController : MonoBehaviour {
 					(Input.GetButton ("Fire1")|Input.GetKey(KeyCode.PageDown)?1:0)/
 						(20.0f*((Input.GetKey(KeyCode.LeftShift)|Input.GetKey (KeyCode.RightShift))?1:2));
 			}
-			if(cameraLeft.orthographicSize < 8400) {
+			if(cameraLeft.orthographicSize < 8500) {
 				cameraLeft.orthographicSize += cameraLeft.orthographicSize*
 					(Input.GetButton ("Fire2")|Input.GetKey (KeyCode.PageUp)?1:0)/
 						(20.0f*((Input.GetKey(KeyCode.LeftShift)|Input.GetKey (KeyCode.RightShift))?1:2));
@@ -138,14 +138,12 @@ public class CameraController : MonoBehaviour {
 						(20.0f*((Input.GetKey(KeyCode.LeftShift)|Input.GetKey (KeyCode.RightShift))?1:2));
 			}
 			zoomLevel=cameraRight.orthographicSize;
-		} else {
-			if(cameraLeft.orthographicSize<.2f) {
+		} else if(cameraLeft.orthographicSize<.2f) {
 				cameraLeft.orthographicSize = .2f; 
 				cameraRight.orthographicSize = .2f;
 				cameraNormal.orthographicSize = .2f;
-			} else if (cameraLeft.orthographicSize>=8500){ 
+		} else if (cameraLeft.orthographicSize>=8500||Input.GetKey (KeyCode.PageUp)){ 
 				warpToCorrespondingObject(outerObject,warpSprite);
-			}
 		}
 		// Detect if we are within a warp zone
 		if(zoomLevel<warpSprite.bounds.extents.y && 
@@ -157,14 +155,19 @@ public class CameraController : MonoBehaviour {
 			warpToCorrespondingObject(warpSprite,outerObject);
 		}
 		if(Input.GetKeyDown (KeyCode.Home)) {
+			animating=false;
 			goToPosition(startPos);
 		} else if (Input.GetKeyDown (KeyCode.Space)) {
+			animating=false;
 			nextScene();
 		}else if (Input.GetKeyDown (KeyCode.A) || Input.GetKeyDown(KeyCode.Z)) {
 			animateToPosition(warpSprite.bounds);
+			animating=false;
 		} else if (Input.GetKeyDown (KeyCode.V)) {
+			animating=false;
 			goToPosition(outerObject);
 		} else if (Input.GetKeyDown (KeyCode.Backspace)) {
+			animating=false;
 			Debug.Log (printPosition());
 		}
 		if(animating)
@@ -248,7 +251,9 @@ public class CameraController : MonoBehaviour {
 		zoomLevel = (zoomLevel/smallObject.bounds.extents.y)*largeObject.bounds.extents.y;
 		newPosition.x = (float)(uniform_x*scale_x);
 		newPosition.y = (float)(uniform_y*scale_y);
-		transform.position = newPosition+largeObject.transform.position;
+		newPosition = newPosition+largeObject.transform.position;
+		newPosition.z = -10;
+		transform.position = newPosition;
 		cameraLeft.orthographicSize = cameraRight.orthographicSize = cameraNormal.orthographicSize = zoomLevel;
 	}
 	
