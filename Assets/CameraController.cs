@@ -7,7 +7,12 @@ public class CameraController : MonoBehaviour {
 	public float zoomLevel = 1;
 	public float cameraDepth = -10;
 	public float tourLength=5f;
+	private bool motionControl=false;
+#if !UNITY_IOS
 	float denominator = 10;
+#else
+	float denominator = 10f;
+#endif
 	public Camera cameraLeft;
 	public Camera cameraRight;
 	public Camera cameraNormal;
@@ -89,10 +94,37 @@ public class CameraController : MonoBehaviour {
 	// Update is called once per frame
 	void Update () {
 		Vector3 curr = transform.position;
-		Vector3 adder = new Vector3 (Input.GetAxis ("Horizontal")*((Input.GetKey(KeyCode.LeftShift)|Input.GetKey (KeyCode.RightShift))?1:.3f), 
+		Vector3 adder;
+		float posX=0f;
+		float posY=0f;
+#if !UNITY_IOS
+
+		adder = new Vector3 (Input.GetAxis ("Horizontal")*((Input.GetKey(KeyCode.LeftShift)|Input.GetKey (KeyCode.RightShift))?1:.3f), 
 		                             Input.GetAxis ("Vertical")*((Input.GetKey(KeyCode.LeftShift)|Input.GetKey (KeyCode.RightShift))?1:.3f));
-		float posX = (curr + (adder / denominator) * zoomLevel).x;
-		float posY = (curr + (adder / denominator) * zoomLevel).y;
+		posX = (curr + (adder / denominator) * zoomLevel).x;
+		posY = (curr + (adder / denominator) * zoomLevel).y;
+#else
+		if(sbRemote.GetButtonDown (sbRemote.BUTTON_BACK)) {
+			motionControl=!motionControl;
+		}
+		if(!motionControl) {
+			adder = new Vector3 (sbRemote.GetAxis(sbRemote.JOY_HORIZONTAL), 
+			                     sbRemote.GetAxis (sbRemote.JOY_VERTICAL));
+		} else {
+			// Use the remote tilt and roll to handle movement.
+			float pitch=0f;
+			if(sbRemote.remoteOrientation.eulerAngles.x>180){
+				pitch=(360f-sbRemote.remoteOrientation.eulerAngles.x);
+			} else {
+				pitch=-(sbRemote.remoteOrientation.eulerAngles.x);
+			}
+			adder = new Vector3 ((180f-(Mathf.Clamp(sbRemote.remoteOrientation.eulerAngles.z,90f,270f)))/180f,
+			                     pitch/180f);
+		}
+		
+		posX = (curr + (adder / denominator) * zoomLevel).x;
+		posY = (curr + (adder / denominator) * zoomLevel).y;
+		#endif
 		Vector3 newPosition = new Vector3();
 		newPosition.x=curr.x;
 		newPosition.y=curr.y;
@@ -130,13 +162,13 @@ public class CameraController : MonoBehaviour {
 					newPosition.z = -10;
 				} else {
 					cameraLeft.orthographicSize -= cameraLeft.orthographicSize*
-						(Input.GetButton ("Fire1")|Input.GetKey (KeyCode.PageDown)?1:0)/
+						(sbRemote.GetButton(sbRemote.BUTTON_SELECT)|Input.GetKey (KeyCode.PageDown)?1:0)/
 							(20.0f*((Input.GetKey(KeyCode.LeftShift)|Input.GetKey (KeyCode.RightShift))?1:2));
 					cameraRight.orthographicSize -= cameraRight.orthographicSize*
-						(Input.GetButton ("Fire1")|Input.GetKey(KeyCode.PageDown)?1:0)/
+						(sbRemote.GetButton(sbRemote.BUTTON_SELECT)|Input.GetKey(KeyCode.PageDown)?1:0)/
 							(20.0f*((Input.GetKey(KeyCode.LeftShift)|Input.GetKey (KeyCode.RightShift))?1:2));
 					cameraNormal.orthographicSize -= cameraNormal.orthographicSize*
-						(Input.GetButton ("Fire1")|Input.GetKey(KeyCode.PageDown)?1:0)/
+						(sbRemote.GetButton(sbRemote.BUTTON_SELECT)|Input.GetKey(KeyCode.PageDown)?1:0)/
 							(20.0f*((Input.GetKey(KeyCode.LeftShift)|Input.GetKey (KeyCode.RightShift))?1:2));
 				}
 			}
@@ -148,15 +180,17 @@ public class CameraController : MonoBehaviour {
 					cameraNormal.orthographicSize += cameraNormal.orthographicSize/4f;
 					newPosition.y = transform.position.y - ((mousePos.y - dragOrigin.y) / (cameraNormal.orthographicSize * 2));
 					newPosition.x = transform.position.x - ((mousePos.x - dragOrigin.x) / (cameraNormal.orthographicSize * 2));
+					mousePos = cameraNormal.ScreenToWorldPoint(new Vector3 (Input.mousePosition.x, Input.mousePosition.y, 0 - cameraNormal.transform.position.z));
+					dragOrigin = cameraNormal.transform.position;
 				} else {
 					cameraLeft.orthographicSize += cameraLeft.orthographicSize*
-						(Input.GetButton ("Fire2")|Input.GetKey (KeyCode.PageUp)?1:0)/
+						(sbRemote.GetButton(sbRemote.BUTTON_OPTION)|Input.GetKey (KeyCode.PageUp)?1:0)/
 							(20.0f*((Input.GetKey(KeyCode.LeftShift)|Input.GetKey (KeyCode.RightShift))?1:2));
 					cameraRight.orthographicSize += cameraRight.orthographicSize*
-						(Input.GetButton ("Fire2")|Input.GetKey (KeyCode.PageUp)?1:0)/
+						(sbRemote.GetButton(sbRemote.BUTTON_OPTION)|Input.GetKey (KeyCode.PageUp)?1:0)/
 							(20.0f*((Input.GetKey(KeyCode.LeftShift)|Input.GetKey (KeyCode.RightShift))?1:2));
 					cameraNormal.orthographicSize += cameraNormal.orthographicSize*
-						(Input.GetButton ("Fire2")|Input.GetKey(KeyCode.PageUp)?1:0)/
+						(sbRemote.GetButton(sbRemote.BUTTON_OPTION)|Input.GetKey(KeyCode.PageUp)?1:0)/
 							(20.0f*((Input.GetKey(KeyCode.LeftShift)|Input.GetKey (KeyCode.RightShift))?1:2));
 				}
 
@@ -167,7 +201,7 @@ public class CameraController : MonoBehaviour {
 				cameraLeft.orthographicSize = .2f; 
 				cameraRight.orthographicSize = .2f;
 				cameraNormal.orthographicSize = .2f;
-		} else if (cameraLeft.orthographicSize>=8500||Input.GetKey (KeyCode.PageUp)){ 
+		} else if (cameraLeft.orthographicSize>=8500||Input.GetKey (KeyCode.PageUp) || Input.GetAxis("Mouse ScrollWheel") < 0){ 
 				warpToCorrespondingObject(outerObject,warpSprite);
 		}
 		// Detect if we are within a warp zone
@@ -182,7 +216,7 @@ public class CameraController : MonoBehaviour {
 		if(Input.GetKeyDown (KeyCode.Home)) {
 			animating=false;
 			goToPosition(startPos);
-		} else if (Input.GetKeyDown (KeyCode.Space)) {
+		} else if (Input.GetKeyDown (KeyCode.Space)||sbRemote.GetButton(sbRemote.BUTTON_TRIGGER)) {
 			animating=false;
 			nextScene();
 		}else if (Input.GetKeyDown (KeyCode.A) || Input.GetKeyDown(KeyCode.Z)) {
@@ -218,7 +252,6 @@ public class CameraController : MonoBehaviour {
 	}
 	private bool animating=false;
 	private float journeyLength;
-	private Vector3 origin;
 	private Vector3 destination;
 	private Vector3 curPosition=new Vector3(0,0,-10);
 	private float startZoom;
@@ -248,7 +281,7 @@ public class CameraController : MonoBehaviour {
 
 	public void animateToPosition(Bounds bounds) {
 		destination = bounds.center;
-		origin = transform.position;
+//		origin = transform.position;
 		startZoom = zoomLevel;
 		float destZoom = bounds.extents.y;
 		if(destZoom==0) {
